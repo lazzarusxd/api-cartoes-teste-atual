@@ -1,17 +1,15 @@
 from uuid import UUID
-
 from fastapi import APIRouter, status, Depends, HTTPException, Path
 from sqlalchemy import and_
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from app.models.cartao_model import CartaoModel
 from app.database.base import get_session
-from app.api.v1.endpoints.responses.cartao_responses import Response
-from app.schemas.cartao_schema import (CriarCartao, CartaoResponse,
-                                       CartaoCriadoResponse, CartaoResponseWrapper,
+from app.api.v1.endpoints.responses.cartao_responses import Responses
+from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoCriadoResponse, CartaoResponseWrapper,
                                        TodosOsCartoesResponse, TodosOsCartoesWrapper,
                                        CartoesPorCpfWrapper, CartoesPorCpfResponse,
-                                       CartaoUpdate, CartaoUpdateWrapper)
+                                       CartaoUpdate, CartaoUpdateResponse, CartaoUpdateWrapper)
 
 router = APIRouter()
 
@@ -19,15 +17,14 @@ router = APIRouter()
 @router.post("/solicitar_cartao",
              response_model=CartaoResponseWrapper,
              status_code=status.HTTP_201_CREATED,
-             summary="Solicitar Cartão",
+             summary="Solicitar cartão",
              description="Gera um novo cartão para o usuário com base nas informações fornecidas.",
              responses={
-                 **Response.sucesso_response,
-                 **Response.erro_validacao_response
+                 **Responses.PostSolicitarCartao.sucesso_response,
+                 **Responses.PostSolicitarCartao.erro_validacao_response
              })
 async def post_solicitar_cartao(dados_cartao: CriarCartao,
-                                db: AsyncSession =
-                                Depends(get_session)) -> CartaoResponseWrapper:
+                                db: AsyncSession = Depends(get_session)) -> CartaoResponseWrapper:
     try:
         result = await db.execute(
             select(CartaoModel).where(
@@ -61,7 +58,7 @@ async def post_solicitar_cartao(dados_cartao: CriarCartao,
             await db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Erro ao salvar cartão no banco."
+                detail="Erro ao salvar cartão no banco."
             )
 
         await db.refresh(cartao)
@@ -72,17 +69,22 @@ async def post_solicitar_cartao(dados_cartao: CriarCartao,
                                      message="Cartão criado com sucesso.",
                                      data=response)
 
-    except Exception as e:
+    except Exception:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Erro ao criar cartão: {str(e)}"
+            detail="Erro ao criar cartão. Tente novamente mais tarde."
         )
 
 
 @router.get("/listar_cartoes/todos",
             response_model=TodosOsCartoesWrapper,
-            status_code=status.HTTP_200_OK)
+            status_code=status.HTTP_200_OK,
+            summary="Listar todos os cartões",
+            description="Retorna uma lista de todos os cartões cadastrados.",
+             responses={
+                 **Responses.GetListarCartoes.sucesso_response
+             })
 async def get_cartoes(db: AsyncSession = Depends(get_session)) -> TodosOsCartoesWrapper:
     query = select(CartaoModel).filter_by()
     result = await db.execute(query)
@@ -97,10 +99,16 @@ async def get_cartoes(db: AsyncSession = Depends(get_session)) -> TodosOsCartoes
 
 @router.get("/listar_cartoes/cpf/{cpf_titular}",
             response_model=CartoesPorCpfWrapper,
-            status_code=status.HTTP_200_OK)
+            status_code=status.HTTP_200_OK,
+            summary="Listar cartões por CPF",
+            description="Retorna todos os cartões vinculados ao CPF informado.",
+             responses={
+                 **Responses.GetListarCartoesCpf.sucesso_response,
+                 **Responses.GetListarCartoesCpf.cpf_invalido_response,
+                 **Responses.GetListarCartoesCpf.erro_validacao_response
+             })
 async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
-                                                      description="CPF do titular do cartão.",
-                                                      example="29348934029"),
+                                                      description="CPF do titular do cartão."),
                               db: AsyncSession = Depends(get_session)) -> CartoesPorCpfWrapper:
     query = select(CartaoModel).where(
         and_(
@@ -112,7 +120,8 @@ async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
 
     if not cartoes:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="O UUID informado não foi encontrado.")
+                            detail="O CPF informado não foi encontrado.")
+
     cartoes_response = [CartaoResponse.from_model(cartao) for cartao in cartoes]
 
     return CartoesPorCpfWrapper(status_code=status.HTTP_200_OK,
@@ -122,7 +131,15 @@ async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
 
 @router.put("/atualizar_info/{uuid}",
             response_model=CartaoUpdateWrapper,
-            status_code=status.HTTP_200_OK)
+            status_code=status.HTTP_200_OK,
+            summary="Atualizar dados do cartão",
+            description="Atualiza os dados do cartão pertencente ao UUID informado.",
+            responses={
+                **Responses.PutAtualizarInformacoes.sucesso_response,
+                **Responses.PutAtualizarInformacoes.uuid_inexistente_response,
+                **Responses.PutAtualizarInformacoes.dados_em_branco_response,
+                **Responses.PutAtualizarInformacoes.erro_validacao_response
+            })
 async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
                                 uuid: UUID = Path(title="UUID do cartão.",
                                                  description="UUID do cartão a ser atualizado."),
@@ -175,6 +192,8 @@ async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Erro ao atualizar o cartão. Tente novamente mais tarde.")
 
+    cartao_atualizado = CartaoUpdateResponse.from_model(cartao)
+
     return CartaoUpdateWrapper(status_code=status.HTTP_200_OK,
                                message="Dados atualizados com sucesso.",
-                               data=atualizacoes_cartao)
+                               data=cartao_atualizado)

@@ -58,7 +58,8 @@ class CriarCartao(BaseModel):
 
 
 class CartaoCriadoResponse(CriarCartao):
-    status: StatusEnum
+    status: StatusEnum = Field(title="Status do cartão",
+                               description="Status atual do cartão.")
 
     @classmethod
     def from_model(cls, cartao: CartaoModel) -> "CartaoCriadoResponse":
@@ -71,21 +72,34 @@ class CartaoCriadoResponse(CriarCartao):
 
 
 class CartaoResponseWrapper(BaseModel):
-    status_code: int
-    message: str
-    data: CartaoCriadoResponse
+    status_code: int = Field(title="Código de status",
+                             description="Código HTTP indicando o status da operação.")
+    message: str = Field(title="Mensagem de resposta",
+                         description="Mensagem que descreve o resultado da operação.")
+    data: CartaoCriadoResponse = Field(title="Dados do cartão criado",
+                                       description="Informações sobre o cartão que foi criado.")
 
 
 class CartaoResponse(BaseModel):
-    uuid: UUID
-    titular_cartao: str
-    cpf_titular: str
-    status: StatusEnum
-    endereco: str
-    numero_cartao: str
-    cvv: str
-    expiracao: str
-    data_criacao: str
+    uuid: UUID = Field(title="UUID do cartão",
+                       description="Identificador único do cartão.")
+    titular_cartao: str = Field(title="Nome do titular do cartão",
+                                description="Nome completo do titular do cartão.")
+    cpf_titular: str = Field(title="CPF do titular",
+                             description="CPF do titular do cartão.")
+    status: StatusEnum = Field(title="Status do cartão",
+                               description="Status atual do cartão.")
+    endereco: str = Field(title="Endereço do titular",
+                          description="Endereço completo do titular do cartão.")
+    numero_cartao: str = Field(title="Número do cartão",
+                               description="Número do cartão de crédito.")
+    cvv: str = Field(title="CVV do cartão",
+                     description="Código de verificação do cartão.")
+    expiracao: str = Field(title="Data de expiração",
+                           description="Data de expiração do cartão no formato MM/AAAA.")
+    data_criacao: str = Field(title="Data de criação",
+                              description="Data e hora em que o cartão foi criado, no formato dd/MM/yyyy HH:mm:ss.")
+
 
     class Config:
         from_attributes = True
@@ -106,29 +120,44 @@ class CartaoResponse(BaseModel):
 
 
 class CartoesPorCpfResponse(BaseModel):
-    cartoes: List[CartaoResponse]
+    cartoes: List[CartaoResponse] = Field(title="Lista de cartões",
+                                          description="Lista de cartões associados ao CPF fornecido.")
 
 
 class CartoesPorCpfWrapper(BaseModel):
-    status_code: int
-    message: str
-    data: CartoesPorCpfResponse
+    status_code: int = Field(title="Código de status",
+                             description="Código HTTP indicando o status da operação.")
+    message: str = Field(title="Mensagem de resposta",
+                         description="Mensagem que descreve o resultado da operação.")
+    data: CartoesPorCpfResponse = Field(title="Dados dos cartões",
+                                        description="Informações sobre os cartões associados ao CPF.")
 
 
 class TodosOsCartoesResponse(BaseModel):
-    cartoes: List[CartaoResponse]
+    cartoes: List[CartaoResponse] = Field(title="Lista de todos os cartões",
+                                          description="Lista de todos os cartões disponíveis.")
 
 
 class TodosOsCartoesWrapper(BaseModel):
-    status_code: int
-    message: str
-    data: TodosOsCartoesResponse
+    status_code: int = Field(title="Código de status",
+                             description="Código HTTP indicando o status da operação.")
+    message: str = Field(title="Mensagem de resposta",
+                         description="Mensagem que descreve o resultado da operação."
+                         )
+    data: TodosOsCartoesResponse = Field(title="Dados dos cartões",
+                                         description="Informações sobre todos os cartões disponíveis.")
 
 
 class CartaoUpdate(BaseModel):
-    titular_cartao: Optional[str] = None
-    endereco: Optional[str] = None
-    status: Optional[StatusEnum] = None
+    titular_cartao: Optional[str] = Field(None,
+                                          title="Nome do titular do cartão",
+                                          description="Nome completo do titular do cartão. Pode ser atualizado.")
+    endereco: Optional[str] = Field(None,
+                                    title="Endereço do titular",
+                                    description="Endereço completo do titular do cartão. Pode ser atualizado.")
+    status: Optional[StatusEnum] = Field(None,
+                                         title="Status do cartão",
+                                         description="Status atual do cartão. Pode ser atualizado.")
 
     @field_validator("endereco", mode="before")
     def validator_endereco(cls, v):
@@ -157,25 +186,49 @@ class CartaoUpdate(BaseModel):
             )
         return v
 
-    @classmethod
-    def from_model(cls, cartao_atualizado: CartaoModel) -> "CartaoUpdate":
-        return cls(
-            uuid=cartao_atualizado.uuid,
-            titular_cartao=cartao_atualizado.titular_cartao,
-            cpf_titular=cartao_atualizado.cpf_titular,
-            status=cartao_atualizado.status,
-            endereco=cartao_atualizado.endereco,
-            numero_cartao=cartao_atualizado.numero_cartao_descriptografado,
-            cvv=cartao_atualizado.cvv_descriptografado,
-            expiracao=cartao_atualizado.expiracao.strftime("%m/%Y"),
-            data_criacao=cartao_atualizado.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S')
-        )
-
     class Config:
         from_attributes = True
 
 
+class CartaoUpdateResponse(BaseModel):
+    uuid: UUID = Field(title="UUID do cartão",
+                       description="Identificador único do cartão.")
+    titular_cartao: str = Field(title="Nome do titular do cartão",
+                                description="Nome completo do titular do cartão.")
+    cpf_titular: str = Field(title="CPF do titular",
+                             description="CPF do titular do cartão.")
+    endereco: Optional[str] = Field(title="Endereço do titular",
+                                    description="Endereço completo do titular do cartão.")
+    status: StatusEnum = Field(title="Status do cartão",
+                               description="Status atual do cartão.")
+    numero_cartao: Optional[str] = Field(title="Número do cartão",
+                                         description="Número do cartão de crédito.")
+    cvv: Optional[str] = Field(title="CVV do cartão",
+                               description="Código de verificação do cartão.")
+    expiracao: str = Field(title="Data de expiração",
+                           description="Data de expiração do cartão no formato MM/AAAA.")
+    data_criacao: str = Field(title="Data de criação",
+                              description="Data e hora em que o cartão foi criado, no formato dd/MM/yyyy HH:mm:ss.")
+
+    @classmethod
+    def from_model(cls, cartao: CartaoModel) -> "CartaoUpdateResponse":
+        return cls(
+            uuid=cartao.uuid,
+            titular_cartao=cartao.titular_cartao,
+            cpf_titular=cartao.cpf_titular,
+            status=cartao.status,
+            endereco=cartao.endereco,
+            numero_cartao=cartao.numero_cartao_descriptografado,
+            cvv=cartao.cvv_descriptografado,
+            expiracao=cartao.expiracao.strftime("%m/%Y"),
+            data_criacao=cartao.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S')
+        )
+
+
 class CartaoUpdateWrapper(BaseModel):
-    status_code: int
-    message: str
-    data: CartaoUpdate
+    status_code: int = Field(title="Código de status",
+                             description="Código HTTP indicando o status da operação.")
+    message: str = Field(title="Mensagem de resposta",
+                         description="Mensagem que descreve o resultado da operação.")
+    data: CartaoUpdateResponse = Field(title="Dados do cartão atualizado",
+                                       description="Informações sobre o cartão que foi atualizado.")
