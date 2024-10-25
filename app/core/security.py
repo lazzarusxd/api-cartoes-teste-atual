@@ -1,11 +1,9 @@
-"""from passlib.context import CryptContext
+from passlib.context import CryptContext
 
 CRIPTO = CryptContext(schemes=['bcrypt'], deprecated='auto')
 
+def verificar_hash(valor: str, hash_valor: str) -> bool:
+    return CRIPTO.verify(valor, hash_valor)
 
-def verificar_senha(senha: str, hash_senha: str) -> bool:
-    return CRIPTO.verify(senha, hash_senha)
-
-
-def gerar_hash_senha(senha: str) -> str:
-    return CRIPTO.hash(senha)"""
+def gerar_hash(valor: str) -> str:
+    return CRIPTO.hash(valor)

@@ -3,6 +3,7 @@ from fastapi import APIRouter, status, Depends, HTTPException, Path
 from sqlalchemy import and_
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from app.core.auth import autenticar, criar_token_acesso
 from app.models.cartao_model import CartaoModel
 from app.database.base import get_session
 from app.api.v1.endpoints.responses.cartao_responses import Responses
@@ -10,8 +11,21 @@ from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoCriado
                                        TodosOsCartoesResponse, TodosOsCartoesWrapper,
                                        CartoesPorCpfWrapper, CartoesPorCpfResponse,
                                        CartaoUpdate, CartaoUpdateResponse, CartaoUpdateWrapper)
+from app.core.deps import get_current_user
 
 router = APIRouter()
+
+
+@router.post("/login")
+async def login(cpf: str = Path(max_length=11,
+                                min_length=11),
+                db: AsyncSession = Depends(get_session)):
+    usuario = await autenticar(cpf, db)
+    if not usuario:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Credenciais inválidas")
+
+    token = criar_token_acesso(cpf)
+    return {"access_token": token, "token_type": "bearer"}
 
 
 @router.post("/solicitar_cartao",
@@ -49,7 +63,6 @@ async def post_solicitar_cartao(dados_cartao: CriarCartao,
         )
 
         await cartao.initialize()
-
         db.add(cartao)
 
         try:
@@ -63,11 +76,16 @@ async def post_solicitar_cartao(dados_cartao: CriarCartao,
 
         await db.refresh(cartao)
 
-        response = CartaoCriadoResponse.from_model(cartao)
+        token = criar_token_acesso(dados_cartao.cpf_titular)
 
-        return CartaoResponseWrapper(status_code=status.HTTP_201_CREATED,
-                                     message="Cartão criado com sucesso.",
-                                     data=response)
+        response = CartaoCriadoResponse.from_model(cartao)
+        response.token = token
+
+        return CartaoResponseWrapper(
+            status_code=status.HTTP_201_CREATED,
+            message="Cartão criado com sucesso.",
+            data=response
+        )
 
     except Exception:
         await db.rollback()
@@ -82,10 +100,11 @@ async def post_solicitar_cartao(dados_cartao: CriarCartao,
             status_code=status.HTTP_200_OK,
             summary="Listar todos os cartões",
             description="Retorna uma lista de todos os cartões cadastrados.",
-             responses={
-                 **Responses.GetListarCartoes.sucesso_response
-             })
-async def get_cartoes(db: AsyncSession = Depends(get_session)) -> TodosOsCartoesWrapper:
+            responses={
+                **Responses.GetListarCartoes.sucesso_response
+            })
+async def get_cartoes(db: AsyncSession = Depends(get_session),
+                      current_card: CartaoModel = Depends(get_current_user)) -> TodosOsCartoesWrapper:
     query = select(CartaoModel).filter_by()
     result = await db.execute(query)
     cartoes = result.scalars().all()
@@ -102,14 +121,15 @@ async def get_cartoes(db: AsyncSession = Depends(get_session)) -> TodosOsCartoes
             status_code=status.HTTP_200_OK,
             summary="Listar cartões por CPF",
             description="Retorna todos os cartões vinculados ao CPF informado.",
-             responses={
-                 **Responses.GetListarCartoesCpf.sucesso_response,
-                 **Responses.GetListarCartoesCpf.cpf_invalido_response,
-                 **Responses.GetListarCartoesCpf.erro_validacao_response
-             })
+            responses={
+                **Responses.GetListarCartoesCpf.sucesso_response,
+                **Responses.GetListarCartoesCpf.cpf_invalido_response,
+                **Responses.GetListarCartoesCpf.erro_validacao_response
+            })
 async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
                                                       description="CPF do titular do cartão."),
-                              db: AsyncSession = Depends(get_session)) -> CartoesPorCpfWrapper:
+                              db: AsyncSession = Depends(get_session),
+                              current_card: CartaoModel = Depends(get_current_user)) -> CartoesPorCpfWrapper:
     query = select(CartaoModel).where(
         and_(
             CartaoModel.cpf_titular == cpf_titular
@@ -143,7 +163,8 @@ async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
 async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
                                 uuid: UUID = Path(title="UUID do cartão.",
                                                  description="UUID do cartão a ser atualizado."),
-                                db: AsyncSession = Depends(get_session)) -> CartaoUpdateWrapper:
+                                db: AsyncSession = Depends(get_session),
+                                current_card: CartaoModel = Depends(get_current_user)) -> CartaoUpdateWrapper:
     query = select(CartaoModel).where(
         and_(
             CartaoModel.uuid == uuid

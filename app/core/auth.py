@@ -1,30 +1,29 @@
-"""from typing import Optional
+from typing import Optional
 from pytz import timezone
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt
-from usuario_model import UsuarioModel
+from app.models.cartao_model import CartaoModel
 from app.core.configs import settings
-from app.core.security import verificar_senha
-from pydantic import EmailStr
+from pydantic import constr
 
 
 oauth2_schema = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1}/cartoes"
+    tokenUrl=f"{settings.API_V1}/login"
 )
 
 
-async def autenticar(email: EmailStr, senha: str, db: AsyncSession) -> Optional[UsuarioModel]:
-    query = select(UsuarioModel).filter_by(email=email)
+async def autenticar(cpf: constr(min_length=11, max_length=11), db: AsyncSession) -> Optional[CartaoModel]:
+    query = select(CartaoModel).filter_by(cpf_titular=cpf)
     result = await db.execute(query)
-    usuario = result.scalars().unique().one_or_none()
+    cartao = result.scalars().unique().one_or_none()
 
-    if not usuario or not verificar_senha(senha, usuario.senha):
+    if not cartao:
         return None
 
-    return usuario
+    return cartao
 
 
 def _criar_token(tipo_token: str, tempo_vida: timedelta, sub: str) -> str:
@@ -39,11 +38,9 @@ def _criar_token(tipo_token: str, tempo_vida: timedelta, sub: str) -> str:
     return jwt.encode(payload, settings.JWT_SECRET, algorithm=settings.ALGORITHM)
 
 
-def criar_token_acesso(sub: str) -> str:
-    # https://jwt.io (verifica a validade da assinatura)
+def criar_token_acesso(cpf: str) -> str:
     return _criar_token(
         tipo_token='access_token',
-        tempo_vida=timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES),
-        sub=sub
+        tempo_vida=timedelta(minutes=settings.TOKEN_EXPIRATION_MINUTES),
+        sub=cpf
     )
-"""
