@@ -1,29 +1,13 @@
-from typing import Optional
 from pytz import timezone
 from datetime import datetime, timedelta
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
 from jose import jwt
-from app.models.cartao_model import CartaoModel
 from app.core.configs import settings
-from pydantic import constr
 
 
 oauth2_schema = OAuth2PasswordBearer(
-    tokenUrl=f"{settings.API_V1}/login"
+    tokenUrl=f"{settings.API_V1}"
 )
-
-
-async def autenticar(cpf: constr(min_length=11, max_length=11), db: AsyncSession) -> Optional[CartaoModel]:
-    query = select(CartaoModel).filter_by(cpf_titular=cpf)
-    result = await db.execute(query)
-    cartao = result.scalars().unique().one_or_none()
-
-    if not cartao:
-        return None
-
-    return cartao
 
 
 def _criar_token(tipo_token: str, tempo_vida: timedelta, sub: str) -> str:

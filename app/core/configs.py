@@ -10,7 +10,7 @@ class Settings(BaseModel):
     DB_URL: str = environ.get('DB_URL')
     JWT_SECRET: str = environ.get('JWT_SECRET')
     ALGORITHM: str = environ.get('ALGORITHM')
-    TOKEN_EXPIRATION_MINUTES: int = environ.get('TOKEN_EXPIRATION_MINUTES')
+    TOKEN_EXPIRATION_MINUTES: int = int(environ.get('TOKEN_EXPIRATION_MINUTES'))
 
     class Config:
         case_sensitive = True

@@ -60,14 +60,17 @@ class CriarCartao(BaseModel):
 class CartaoCriadoResponse(CriarCartao):
     status: StatusEnum = Field(title="Status do cartão",
                                description="Status atual do cartão.")
+    token: str = Field(title="Token de acesso",
+                       description="Token gerado para acesso.")
 
     @classmethod
-    def from_model(cls, cartao: CartaoModel) -> "CartaoCriadoResponse":
+    def from_model(cls, cartao: CartaoModel, token: str) -> "CartaoCriadoResponse":
         return cls(
             titular_cartao=cartao.titular_cartao,
             cpf_titular=cartao.cpf_titular,
             endereco=cartao.endereco,
-            status=cartao.status
+            status=cartao.status,
+            token=token
         )
 
 
@@ -105,7 +108,7 @@ class CartaoResponse(BaseModel):
         from_attributes = True
 
     @classmethod
-    def from_model(cls, cartao: CartaoModel) -> "CartaoResponse":
+    def from_model(cls, cartao: CartaoModel, _token) -> "CartaoResponse":
         return cls(
             uuid=cartao.uuid,
             titular_cartao=cartao.titular_cartao,
@@ -131,21 +134,6 @@ class CartoesPorCpfWrapper(BaseModel):
                          description="Mensagem que descreve o resultado da operação.")
     data: CartoesPorCpfResponse = Field(title="Dados dos cartões",
                                         description="Informações sobre os cartões associados ao CPF.")
-
-
-class TodosOsCartoesResponse(BaseModel):
-    cartoes: List[CartaoResponse] = Field(title="Lista de todos os cartões",
-                                          description="Lista de todos os cartões disponíveis.")
-
-
-class TodosOsCartoesWrapper(BaseModel):
-    status_code: int = Field(title="Código de status",
-                             description="Código HTTP indicando o status da operação.")
-    message: str = Field(title="Mensagem de resposta",
-                         description="Mensagem que descreve o resultado da operação."
-                         )
-    data: TodosOsCartoesResponse = Field(title="Dados dos cartões",
-                                         description="Informações sobre todos os cartões disponíveis.")
 
 
 class CartaoUpdate(BaseModel):
