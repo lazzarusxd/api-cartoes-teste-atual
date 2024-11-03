@@ -8,73 +8,35 @@ from app.models.cartao_model import CartaoModel
 from app.database.base import get_session
 from app.api.v1.endpoints.responses.cartao_responses import Responses
 from app.core.deps import get_current_user_cpf
-from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoCriadoResponse, CartaoResponseWrapper,
+from app.services.cartao_services import CartaoServices
+from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoResponseWrapper,
                                        CartoesPorCpfWrapper, CartoesPorCpfResponse,
-                                       CartaoUpdate, CartaoUpdateResponse, CartaoUpdateWrapper)
+                                       CartaoUpdate, CartaoUpdateResponse, CartaoUpdateWrapper,
+                                       CartaoTransferir, CartaoTransferirResponse,
+                                       CartaoTransferirWrapper)
 
 router = APIRouter()
 
 
-@router.post(
-    "/solicitar_cartao",
-    response_model=CartaoResponseWrapper,
-    status_code=status.HTTP_201_CREATED,
-    summary="Solicitar cartão",
-    description="Gera um novo cartão para o usuário com base nas informações fornecidas.",
-    responses={
-        **Responses.PostSolicitarCartao.sucesso_response,
-        **Responses.PostSolicitarCartao.erro_validacao_response
-    })
-async def post_solicitar_cartao(
-        dados_cartao: CriarCartao,
-        db: AsyncSession = Depends(get_session)) -> CartaoResponseWrapper:
+@router.post("/solicitar_cartao",
+             response_model=CartaoResponseWrapper,
+             status_code=status.HTTP_201_CREATED,
+             summary="Solicitar cartão",
+             description="Gera um novo cartão para o usuário com base nas informações fornecidas.",
+             responses={
+                 **Responses.PostSolicitarCartao.sucesso_response,
+                 **Responses.PostSolicitarCartao.erro_validacao_response
+             })
+async def post_solicitar_cartao(dados_cartao: CriarCartao,
+                                cartao_services: CartaoServices = Depends()) -> CartaoResponseWrapper:
 
-    try:
-        result = await db.execute(
-            select(CartaoModel).where(
-                and_(
-                    CartaoModel.cpf_titular == dados_cartao.cpf_titular
-                )
-            )
-        )
-        usuario_existente = result.scalars().all()
+    cartao_response = await cartao_services.solicitar_cartao(dados_cartao)
 
-        for usuario in usuario_existente:
-            if usuario.titular_cartao.upper() != dados_cartao.titular_cartao.upper():
-                raise HTTPException(
-                    status_code=status.HTTP_400_BAD_REQUEST,
-                    detail="CPF já cadastrado para um titular diferente."
-                )
-
-        cartao = CartaoModel(
-            titular_cartao=dados_cartao.titular_cartao.upper(),
-            cpf_titular=dados_cartao.cpf_titular,
-            endereco=dados_cartao.endereco.upper()
-        )
-
-        token = criar_token_acesso(dados_cartao.cpf_titular)
-
-        await cartao.initialize()
-
-        db.add(cartao)
-
-        await db.commit()
-        await db.refresh(cartao)
-
-        cartao_criado = CartaoCriadoResponse.from_model(cartao, token)
-
-        return CartaoResponseWrapper(
-            status_code=status.HTTP_201_CREATED,
-            message="Cartão criado com sucesso.",
-            data=cartao_criado
-        )
-
-    except Exception as e:
-        await db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Erro ao criar cartão: {str(e)}"
-        )
+    return CartaoResponseWrapper(
+        status_code=cartao_response["status_code"],
+        message=cartao_response["message"],
+        data=cartao_response["data"]
+    )
 
 
 @router.get("/listar_cartoes/cpf/{cpf_titular}",
@@ -87,12 +49,10 @@ async def post_solicitar_cartao(
                 **Responses.GetListarCartoesCpf.cpf_invalido_response,
                 **Responses.GetListarCartoesCpf.erro_validacao_response
             })
-async def get_cartoes_por_cpf(
-        cpf_titular: str = Path(title="CPF do titular",
-                                description="CPF do titular do cartão."),
-        db: AsyncSession = Depends(get_session),
-        _: str = Depends(get_current_user_cpf)
-) -> CartoesPorCpfWrapper:
+async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
+                                                      description="CPF do titular do cartão."),
+                              db: AsyncSession = Depends(get_session),
+                              _: str = Depends(get_current_user_cpf)) -> CartoesPorCpfWrapper:
 
     query = select(CartaoModel).where(
         and_(CartaoModel.cpf_titular == cpf_titular)
@@ -172,6 +132,10 @@ async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
         atualizacoes_cartao["status"] = dados_atualizados.status
         cartao.status = dados_atualizados.status
 
+    if dados_atualizados.saldo is not None:
+        atualizacoes_cartao["saldo"] = dados_atualizados.saldo
+        cartao.saldo = dados_atualizados.saldo
+
     if not atualizacoes_cartao:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                             detail="Erro. Não foram informados dados a serem atualizados.")
@@ -183,8 +147,22 @@ async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                             detail="Erro ao atualizar o cartão. Tente novamente mais tarde.")
 
-    cartao_atualizado = CartaoUpdateResponse.from_model(cartao)
-
     return CartaoUpdateWrapper(status_code=status.HTTP_200_OK,
                                message="Dados atualizados com sucesso.",
-                               data=cartao_atualizado)
+                               data=CartaoUpdateResponse.from_model(cartao))
+
+
+@router.post("/transferir_saldo",
+             response_model=CartaoTransferirWrapper,
+             status_code=status.HTTP_200_OK,
+             description="Transfere saldo entre cartões por UUID.")
+async def transferir_saldo(transferencia: CartaoTransferir,
+                           cartao_services: CartaoServices = Depends()) -> CartaoTransferirWrapper:
+
+    cartao_response = await cartao_services.transferir_saldo(transferencia)
+
+    return CartaoTransferirWrapper(
+            status_code=cartao_response["status_code"],
+            message=cartao_response["message"],
+            data=cartao_response["data"]
+        )

@@ -1,7 +1,7 @@
 import enum, random
 import uuid
 from calendar import monthrange
-from sqlalchemy import Enum, Column, Integer, String, Date, select, DateTime
+from sqlalchemy import Enum, Column, Integer, String, Date, select, DateTime, Float
 from sqlalchemy.dialects.postgresql import UUID
 from datetime import datetime, timedelta, date
 from jose import jwt
@@ -29,6 +29,7 @@ class CartaoModel(Base):
     cpf_titular = Column(String, index=True, nullable=False)
     status = Column(Enum(StatusEnum), nullable=False, default=StatusEnum.EM_ANALISE)
     endereco = Column(String, index=True, nullable=False)
+    saldo = Column(Float, nullable=False, default=0)
     numero_cartao = Column(String, nullable=False, unique=True)
     expiracao = Column(Date, nullable=False)
     cvv = Column(String, nullable=False)

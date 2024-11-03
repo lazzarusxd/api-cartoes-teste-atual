@@ -27,7 +27,7 @@ async def get_current_user_cpf(token: str = Depends(oauth2_schema)) -> str:
         )
         cpf_titular = payload.get("sub")
 
-        if cpf_titular is None or cpf_titular != token:
+        if cpf_titular is None:
             raise credential_exception
 
         return cpf_titular
