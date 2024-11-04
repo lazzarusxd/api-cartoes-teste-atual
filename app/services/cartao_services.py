@@ -1,5 +1,5 @@
 from uuid import UUID
-from fastapi import status, Depends, HTTPException, Path
+from fastapi import status, Depends, HTTPException
 from sqlalchemy import and_
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
