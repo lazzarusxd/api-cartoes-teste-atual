@@ -1,8 +1,8 @@
-"""Adicionada a tabela cartoes
+"""Criada a tabela cartoes
 
-Revision ID: fb0205e6febf
+Revision ID: 507f4db4bc68
 Revises: 
-Create Date: 2024-11-02 23:18:07.215506
+Create Date: 2024-11-04 16:36:19.788233
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'fb0205e6febf'
+revision: str = '507f4db4bc68'
 down_revision: Union[str, None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -27,11 +27,13 @@ def upgrade() -> None:
     sa.Column('cpf_titular', sa.String(), nullable=False),
     sa.Column('status', sa.Enum('ATIVO', 'INATIVO', 'CANCELADO', 'BLOQUEADO', 'ENVIADO', 'EXPIRADO', 'EM_ANALISE', 'BLACKLISTED', name='statusenum'), nullable=False),
     sa.Column('endereco', sa.String(), nullable=False),
-    sa.Column('saldo', sa.Double(), nullable=False),
+    sa.Column('saldo', sa.Float(), nullable=False),
     sa.Column('numero_cartao', sa.String(), nullable=False),
     sa.Column('expiracao', sa.Date(), nullable=False),
     sa.Column('cvv', sa.String(), nullable=False),
     sa.Column('data_criacao', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('token', sa.String(), nullable=False),
+    sa.Column('token_expiracao', sa.DateTime(timezone=True), nullable=False),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('numero_cartao'),
     sa.UniqueConstraint('uuid')

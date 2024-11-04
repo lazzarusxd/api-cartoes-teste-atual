@@ -61,16 +61,16 @@ class CartaoCriadoResponse(CriarCartao):
     status: StatusEnum = Field(title="Status do cartão",
                                description="Status atual do cartão.")
     token: str = Field(title="Token de acesso",
-                       description="Token gerado para acesso.")
+                       description="Token de acesso aos cartões do CPF vinculado.")
 
     @classmethod
-    def from_model(cls, cartao: CartaoModel, token: str) -> "CartaoCriadoResponse":
+    def from_model(cls, cartao: CartaoModel) -> "CartaoCriadoResponse":
         return cls(
             titular_cartao=cartao.titular_cartao,
             cpf_titular=cartao.cpf_titular,
             endereco=cartao.endereco,
             status=cartao.status,
-            token=token
+            token=cartao.hash_token_descriptografado
         )
 
 
@@ -104,13 +104,15 @@ class CartaoResponse(BaseModel):
                            description="Data de expiração do cartão no formato MM/AAAA.")
     data_criacao: str = Field(title="Data de criação",
                               description="Data e hora em que o cartão foi criado, no formato dd/MM/yyyy HH:mm:ss.")
+    token: str = Field(title="Token de acesso",
+                       description="Token de acesso do CPF vinculado ao cartão.")
 
 
     class Config:
         from_attributes = True
 
     @classmethod
-    def from_model(cls, cartao: CartaoModel, _token) -> "CartaoResponse":
+    def from_model(cls, cartao: CartaoModel) -> "CartaoResponse":
         return cls(
             uuid=cartao.uuid,
             titular_cartao=cartao.titular_cartao,
@@ -121,7 +123,8 @@ class CartaoResponse(BaseModel):
             numero_cartao=cartao.numero_cartao_descriptografado,
             cvv=cartao.cvv_descriptografado,
             expiracao=cartao.expiracao.strftime("%m/%Y"),
-            data_criacao=cartao.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S')
+            data_criacao=cartao.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S'),
+            token=cartao.hash_token_descriptografado
         )
 
 
@@ -205,6 +208,8 @@ class CartaoUpdateResponse(BaseModel):
                            description="Data de expiração do cartão no formato MM/AAAA.")
     data_criacao: str = Field(title="Data de criação",
                               description="Data e hora em que o cartão foi criado, no formato dd/MM/yyyy HH:mm:ss.")
+    token: str = Field(title="Token de acesso",
+                       description="Token de acesso do CPF vinculado ao cartão.")
 
     @classmethod
     def from_model(cls, cartao: CartaoModel) -> "CartaoUpdateResponse":
@@ -218,7 +223,8 @@ class CartaoUpdateResponse(BaseModel):
             numero_cartao=cartao.numero_cartao_descriptografado,
             cvv=cartao.cvv_descriptografado,
             expiracao=cartao.expiracao.strftime("%m/%Y"),
-            data_criacao=cartao.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S')
+            data_criacao=cartao.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S'),
+            token=cartao.hash_token_descriptografado
         )
 
 
@@ -270,6 +276,8 @@ class CartaoTransferirResponse(BaseModel):
                            description="Data de expiração do cartão no formato MM/AAAA.")
     data_criacao: str = Field(title="Data de criação",
                               description="Data e hora em que o cartão foi criado, no formato dd/MM/yyyy HH:mm:ss.")
+    token: str = Field(title="Token de acesso",
+                       description="Token de acesso do CPF vinculado ao cartão.")
 
     @classmethod
     def from_model(cls, cartao: CartaoModel) -> "CartaoTransferirResponse":
@@ -283,7 +291,8 @@ class CartaoTransferirResponse(BaseModel):
             numero_cartao=cartao.numero_cartao_descriptografado,
             cvv=cartao.cvv_descriptografado,
             expiracao=cartao.expiracao.strftime("%m/%Y"),
-            data_criacao=cartao.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S')
+            data_criacao=cartao.data_criacao.astimezone(timezone('America/Sao_Paulo')).strftime('%d/%m/%Y %H:%M:%S'),
+            token=cartao.hash_token_descriptografado
         )
 
 

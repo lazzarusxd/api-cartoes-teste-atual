@@ -1,19 +1,10 @@
 from uuid import UUID
-from fastapi import APIRouter, status, Depends, HTTPException, Path
-from sqlalchemy import and_
-from sqlalchemy.future import select
-from sqlalchemy.ext.asyncio import AsyncSession
-from app.core.auth import criar_token_acesso
-from app.models.cartao_model import CartaoModel
-from app.database.base import get_session
+from fastapi import APIRouter, status, Depends
 from app.api.v1.endpoints.responses.cartao_responses import Responses
-from app.core.deps import get_current_user_cpf
+from app.core.deps import auth_listar_cartoes_por_cpf, auth_atualizar_dados_cartao_uuid
 from app.services.cartao_services import CartaoServices
-from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoResponseWrapper,
-                                       CartoesPorCpfWrapper, CartoesPorCpfResponse,
-                                       CartaoUpdate, CartaoUpdateResponse, CartaoUpdateWrapper,
-                                       CartaoTransferir, CartaoTransferirResponse,
-                                       CartaoTransferirWrapper)
+from app.schemas.cartao_schema import (CriarCartao, CartaoResponseWrapper, CartoesPorCpfWrapper, CartaoUpdate,
+                                       CartaoUpdateWrapper, CartaoTransferir, CartaoTransferirWrapper)
 
 router = APIRouter()
 
@@ -49,32 +40,15 @@ async def post_solicitar_cartao(dados_cartao: CriarCartao,
                 **Responses.GetListarCartoesCpf.cpf_invalido_response,
                 **Responses.GetListarCartoesCpf.erro_validacao_response
             })
-async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
-                                                      description="CPF do titular do cartão."),
-                              db: AsyncSession = Depends(get_session),
-                              _: str = Depends(get_current_user_cpf)) -> CartoesPorCpfWrapper:
+async def get_cartoes_por_cpf(cpf_titular: str = Depends(auth_listar_cartoes_por_cpf),
+                              cartao_services: CartaoServices = Depends()) -> CartoesPorCpfWrapper:
 
-    query = select(CartaoModel).where(
-        and_(CartaoModel.cpf_titular == cpf_titular)
-    )
-    result = await db.execute(query)
-    cartoes = result.scalars().all()
-
-    if not cartoes:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="O CPF informado não foi encontrado."
-        )
-
-    cartoes_response = [
-        CartaoResponse.from_model(cartao, _token=criar_token_acesso(cartao.cpf_titular))
-        for cartao in cartoes
-    ]
+    cartao_response = await cartao_services.listar_cartoes_por_cpf(cpf_titular)
 
     return CartoesPorCpfWrapper(
-        status_code=status.HTTP_200_OK,
-        message="Todos os cartões foram listados com sucesso.",
-        data=CartoesPorCpfResponse(cartoes=cartoes_response),
+        status_code=cartao_response["status_code"],
+        message=cartao_response["message"],
+        data=cartao_response["data"]
     )
 
 
@@ -90,66 +64,14 @@ async def get_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
                 **Responses.PutAtualizarInformacoes.erro_validacao_response
             })
 async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
-                                uuid: UUID = Path(title="UUID do cartão.",
-                                                 description="UUID do cartão a ser atualizado."),
-                                db: AsyncSession = Depends(get_session),
-                                _: str = Depends(get_current_user_cpf)) -> CartaoUpdateWrapper:
+                                uuid: UUID = Depends(auth_atualizar_dados_cartao_uuid),
+                                cartao_services: CartaoServices = Depends()) -> CartaoUpdateWrapper:
 
-    query = select(CartaoModel).where(
-        and_(
-            CartaoModel.uuid == uuid
-        )
-    )
-    result = await db.execute(query)
-    cartao = result.scalars().first()
+    cartao_response = await cartao_services.atualizar_info(dados_atualizados, uuid)
 
-    if not cartao:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                            detail="Cartão não encontrado, verifique o UUID.")
-
-    atualizacoes_cartao = {}
-    if dados_atualizados.titular_cartao is not None or dados_atualizados.endereco is not None:
-        query_atualizar_cartoes = select(CartaoModel).where(
-            and_(
-                CartaoModel.cpf_titular == cartao.cpf_titular,
-                CartaoModel.titular_cartao == cartao.titular_cartao
-            )
-        )
-        result_cartoes = await db.execute(query_atualizar_cartoes)
-        cartoes_para_atualizar = result_cartoes.scalars().all()
-
-        if dados_atualizados.titular_cartao is not None:
-            atualizacoes_cartao["titular_cartao"] = dados_atualizados.titular_cartao
-            for cartao_atualizar in cartoes_para_atualizar:
-                cartao_atualizar.titular_cartao = dados_atualizados.titular_cartao
-
-        if dados_atualizados.endereco is not None:
-            atualizacoes_cartao["endereco"] = dados_atualizados.endereco
-            for cartao_atualizar in cartoes_para_atualizar:
-                cartao_atualizar.endereco = dados_atualizados.endereco
-
-    if dados_atualizados.status is not None:
-        atualizacoes_cartao["status"] = dados_atualizados.status
-        cartao.status = dados_atualizados.status
-
-    if dados_atualizados.saldo is not None:
-        atualizacoes_cartao["saldo"] = dados_atualizados.saldo
-        cartao.saldo = dados_atualizados.saldo
-
-    if not atualizacoes_cartao:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                            detail="Erro. Não foram informados dados a serem atualizados.")
-
-    try:
-        await db.commit()
-    except Exception:
-        await db.rollback()
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                            detail="Erro ao atualizar o cartão. Tente novamente mais tarde.")
-
-    return CartaoUpdateWrapper(status_code=status.HTTP_200_OK,
-                               message="Dados atualizados com sucesso.",
-                               data=CartaoUpdateResponse.from_model(cartao))
+    return CartaoUpdateWrapper(status_code=cartao_response["status_code"],
+                               message=cartao_response["message"],
+                               data=cartao_response["data"])
 
 
 @router.post("/transferir_saldo",
