@@ -184,7 +184,7 @@ class CartaoServices:
 
             return {
                 "status_code": status.HTTP_200_OK,
-                "message": f"Foi enviado R${transferencia.valor} do cartão '{cartao.uuid}'"
+                "message": f"Foi enviado R${transferencia.valor:.2f} do cartão '{cartao.uuid}'"
                              f" para o cartão '{cartao2.uuid}.",
                 "data": CartaoTransferirResponse.from_model(cartao2)
             }
