@@ -1,7 +1,7 @@
 from uuid import UUID
 from fastapi import APIRouter, status, Depends
 from app.api.v1.endpoints.responses.cartao_responses import Responses
-from app.core.deps import auth_listar_cartoes_por_cpf, auth_atualizar_dados_cartao_uuid
+from app.core.deps import auth_listar_cartoes_por_cpf, auth_atualizar_dados_cartao_uuid, auth_transferir_saldo
 from app.services.cartao_services import CartaoServices
 from app.schemas.cartao_schema import (CriarCartao, CartaoResponseWrapper, CartoesPorCpfWrapper, CartaoUpdate,
                                        CartaoUpdateWrapper, CartaoTransferir, CartaoTransferirWrapper)
@@ -78,7 +78,7 @@ async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
              response_model=CartaoTransferirWrapper,
              status_code=status.HTTP_200_OK,
              description="Transfere saldo entre cartões por UUID.")
-async def transferir_saldo(transferencia: CartaoTransferir,
+async def transferir_saldo(transferencia: CartaoTransferir = Depends(auth_transferir_saldo),
                            cartao_services: CartaoServices = Depends()) -> CartaoTransferirWrapper:
 
     cartao_response = await cartao_services.transferir_saldo(transferencia)
