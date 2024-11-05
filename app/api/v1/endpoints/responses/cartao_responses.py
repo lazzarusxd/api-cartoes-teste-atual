@@ -1,6 +1,6 @@
 class Responses:
 
-    class PostSolicitarCartao:
+    class SolicitarCartao:
         sucesso_response = {
             201: {
                 "description": "Cartão criado com sucesso.",
@@ -13,7 +13,8 @@ class Responses:
                                 "titular_cartao": "JOSE DA SILVA",
                                 "cpf_titular": "23948273849",
                                 "endereco": "RUA II, S/N, BAIRRO TRINTA",
-                                "status": "EM_ANALISE"
+                                "status": "EM_ANALISE",
+                                "token": "eyJhbGckpXVCJ9.eyJ0eXBlDM3MDA00.tVmBVYdL3iKNgR4yn6t7xj9"
                             }
                         }
                     }
@@ -21,28 +22,20 @@ class Responses:
             }
         }
 
-        erro_validacao_response = {
-            422: {
-                "description": "Erro de validação. Os parâmetros não atendem aos requisitos esperados.",
+        dados_em_branco = {
+            400: {
+                "description": "Possíveis erros de validação (regras de negócio e campos vazios).",
                 "content": {
                     "application/json": {
                         "example": {
                             "detail": [
-                                {
-                                    "loc": ["body", "nome_titular"],
-                                    "msg": "Nome inválido. Forneça um nome válido, constituído apenas por letras.",
-                                    "type": "value_error"
-                                },
-                                {
-                                    "loc": ["body", "cpf_titular"],
-                                    "msg": "CPF inválido. Forneça um CPF válido, composto por 11 números.",
-                                    "type": "value_error"
-                                },
-                                {
-                                    "loc": ["body", "endereco"],
-                                    "msg": "Endereço inválido. O campo endereço não pode ficar vazio.",
-                                    "type": "value_error"
-                                }
+                                "O nome do titular deve ser composto apenas por letras.",
+                                "Nome titular é um campo obrigatório e não pode ser uma string vazia.",
+                                "Endereço é um campo obrigatório e não pode ser uma string vazia.",
+                                "CPF é um campo obrigatório e não pode ser uma string vazia.",
+                                "O CPF deve conter apenas números.",
+                                "O CPF deve conter exatamente 11 dígitos.",
+                                "CPF já cadastrado para um titular diferente."
                             ]
                         }
                     }
@@ -50,7 +43,7 @@ class Responses:
             }
         }
 
-    class GetListarCartoes:
+    class CartoesPorCpf:
         sucesso_response = {
             200: {
                 "description": "Todos os cartões foram listados com sucesso.",
@@ -67,51 +60,12 @@ class Responses:
                                         "cpf_titular": "12345678912",
                                         "status": "EM_ANALISE",
                                         "endereco": "RUA DA FELICIDADE, BAIRRO ALEGRIA",
+                                        "saldo": 50.0,
                                         "numero_cartao": "1111222233334444",
                                         "cvv": "123",
                                         "expiracao": "10/2029",
-                                        "data_criacao": "16/10/2024 11:25:09"
-                                    },
-                                    {
-                                        "uuid": "fb1d729b-46f7-4b2d-8b29-73eedc149e24",
-                                        "titular_cartao": "MARIA DA SILVA",
-                                        "cpf_titular": "21987654321",
-                                        "status": "EM_ANALISE",
-                                        "endereco": "RUA DA TRISTEZA, BAIRRO TRISTE",
-                                        "numero_cartao": "4444333322221111",
-                                        "cvv": "321",
-                                        "expiracao": "10/2029",
-                                        "data_criacao": "16/10/2024 11:24:47"
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-    class GetListarCartoesCpf:
-        sucesso_response = {
-            200: {
-                "description": "Todos os cartões foram listados com sucesso.",
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "status_code": 200,
-                            "message": "Todos os cartões foram listados com sucesso.",
-                            "data": {
-                                "cartoes": [
-                                    {
-                                        "uuid": "9534299a-8c90-473d-b9c6-cc2bb18103ae",
-                                        "titular_cartao": "JOAO DA SILVA",
-                                        "cpf_titular": "12345678912",
-                                        "status": "EM_ANALISE",
-                                        "endereco": "RUA DA FELICIDADE, BAIRRO ALEGRIA",
-                                        "numero_cartao": "1111222233334444",
-                                        "cvv": "123",
-                                        "expiracao": "10/2029",
-                                        "data_criacao": "16/10/2024 11:25:09"
+                                        "data_criacao": "16/10/2024 11:25:09",
+                                        "token": "eyJhbGckpXVCJ9.eyJ0eXBlDM3MDA00.tVmBVYdL3iKNgR4yn6t7xj9"
                                     },
                                     {
                                         "uuid": "fb1d729b-46f7-4b2d-8b29-73eedc149e24",
@@ -119,10 +73,12 @@ class Responses:
                                         "cpf_titular": "12345678912",
                                         "status": "EM_ANALISE",
                                         "endereco": "RUA DA FELICIDADE, BAIRRO ALEGRIA",
+                                        "saldo": 150.0,
                                         "numero_cartao": "4444333322221111",
                                         "cvv": "321",
                                         "expiracao": "10/2029",
-                                        "data_criacao": "16/10/2024 11:24:47"
+                                        "data_criacao": "16/10/2024 11:24:47",
+                                        "token": "eyJhbGckpXVCJ9.eyJ0eXBlDM3MDA00.tVmBVYdL3iKNgR4yn6t7xj9"
                                     }
                                 ]
                             }
@@ -145,24 +101,7 @@ class Responses:
             }
         }
 
-        erro_validacao_response = {
-            422: {
-                "description": "Erro de validação. Os parâmetros não atendem aos requisitos esperados.",
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "detail": {
-                                "loc": ["path", "cpf_titular"],
-                                "msg": "CPF inválido. Forneça um CPF válido, composto por 11 números.",
-                                "type": "value_error"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-    class PutAtualizarInformacoes:
+    class AtualizarDados:
 
         sucesso_response = {
             200: {
@@ -177,12 +116,14 @@ class Responses:
                                     "uuid": "fb1d729b-46f7-4b2d-8b29-73eedc149e24",
                                     "titular_cartao": "JOAO DA SILVA",
                                     "cpf_titular": "12345678912",
-                                    "status": "EM_ANALISE",
+                                    "status": "ATIVO",
                                     "endereco": "RUA DA FELICIDADE, BAIRRO ALEGRIA",
+                                    "saldo": 50.0,
                                     "numero_cartao": "4444333322221111",
                                     "cvv": "321",
                                     "expiracao": "10/2029",
-                                    "data_criacao": "16/10/2024 11:24:47"
+                                    "data_criacao": "16/10/2024 11:24:47",
+                                    "token": "eyJhbGckpXVCJ9.eyJ0eXBlDM3MDA00.tVmBVYdL3iKNgR4yn6t7xj9"
                                 }
                             }
                         }
@@ -204,22 +145,18 @@ class Responses:
             }
         }
 
-        erro_validacao_response = {
-            422: {
-                "description": "Erro de validação. Os parâmetros não atendem aos requisitos esperados.",
+        dados_em_branco_response = {
+            400: {
+                "description": "Possíveis erros de validação (regras de negócio e campos vazios/nulos).",
                 "content": {
                     "application/json": {
                         "example": {
                             "detail": [
-                                {
-                                    "type": "uuid_parsing",
-                                    "loc": ["path", "uuid"],
-                                    "msg": "O UUID fornecido é inválido. O comprimento do primeiro grupo está incorreto: esperado 8, encontrado 7.",
-                                    "input": "1045755-f41a-46f1-bc64-3da462dfec7a",
-                                    "ctx": {
-                                        "error": "invalid group length in group 0: expected 8, found 7"
-                                    }
-                                }
+                                "Erro. Não foram informados dados a serem atualizados.",
+                                "O nome do titular não pode ser uma string vazia.",
+                                "O nome do titular deve ser composto apenas por letras.",
+                                "Endereço inválido. O endereço não pode ser vazio.",
+                                "CPF é um campo obrigatório e não pode ser vazio."
                             ]
                         }
                     }
@@ -227,16 +164,8 @@ class Responses:
             }
         }
 
-        dados_em_branco_response = {
-            400: {
-                "description": "Erro no body. Não foi informado nenhum dado para atualização.",
-                "content": {
-                    "application/json": {
-                        "example": {
-                            "detail": "Erro no body. Não foi informado nenhum dado para atualizar."
-                        }
-                    }
-                }
-            }
-        }
+    class RecarregarCartao:
+        ...
 
+    class TransferirSaldo:
+        ...

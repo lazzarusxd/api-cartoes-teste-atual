@@ -3,10 +3,10 @@ from fastapi import status, Depends, HTTPException
 from sqlalchemy import and_
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from app.models.cartao_model import CartaoModel
+from app.models.cartao_model import CartaoModel, StatusEnum
 from app.database.base import get_session
-from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoCriadoResponse, CartoesPorCpfResponse,
-                                       CartaoUpdate, CartaoUpdateResponse, CartaoTransferir, CartaoTransferirResponse)
+from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoCriadoResponse, CartaoUpdate,
+                                       CartoesPorCpfResponse, CartaoTransferir, CartaoRecarga)
 
 class CartaoServices:
 
@@ -50,14 +50,14 @@ class CartaoServices:
                 "data": CartaoCriadoResponse.from_model(cartao)
             }
 
-        except Exception as e:
+        except Exception:
             await self.db.rollback()
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Erro ao criar cartão: {str(e)}"
+                detail="Erro ao criar cartão. Tente novamente mais tarde."
             )
 
-    async def listar_cartoes_por_cpf(self, cpf_titular: str) -> dict:
+    async def cartoes_por_cpf(self, cpf_titular: str) -> dict:
         query = await self.db.execute(
             select(CartaoModel).where(
                 and_(CartaoModel.cpf_titular == cpf_titular)
@@ -95,14 +95,15 @@ class CartaoServices:
 
         atualizacoes_cartao = {}
         if dados_atualizados.titular_cartao is not None or dados_atualizados.endereco is not None:
-            query_atualizar_cartoes = select(CartaoModel).where(
-                and_(
-                    CartaoModel.cpf_titular == cartao.cpf_titular,
-                    CartaoModel.titular_cartao == cartao.titular_cartao
+            query2 = await self.db.execute(
+                select(CartaoModel).where(
+                    and_(
+                        CartaoModel.cpf_titular == cartao.cpf_titular,
+                        CartaoModel.titular_cartao == cartao.titular_cartao
+                    )
                 )
             )
-            result_cartoes = await self.db.execute(query_atualizar_cartoes)
-            cartoes_para_atualizar = result_cartoes.scalars().all()
+            cartoes_para_atualizar = query2.scalars().all()
 
             if dados_atualizados.titular_cartao is not None:
                 atualizacoes_cartao["titular_cartao"] = dados_atualizados.titular_cartao
@@ -118,10 +119,6 @@ class CartaoServices:
             atualizacoes_cartao["status"] = dados_atualizados.status
             cartao.status = dados_atualizados.status
 
-        if dados_atualizados.saldo is not None:
-            atualizacoes_cartao["saldo"] = dados_atualizados.saldo
-            cartao.saldo = dados_atualizados.saldo
-
         if not atualizacoes_cartao:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Erro. Não foram informados dados a serem atualizados.")
@@ -136,18 +133,55 @@ class CartaoServices:
         return {
             "status_code": status.HTTP_200_OK,
             "message": "Dados atualizados com sucesso.",
-            "data": CartaoUpdateResponse.from_model(cartao)
+            "data": CartaoResponse.from_model(cartao)
         }
 
-
-    async def transferir_saldo(self, transferencia: CartaoTransferir) -> dict:
-            query = select(CartaoModel).where(
+    async def recarregar_cartao(self, recarga: CartaoRecarga, uuid: UUID) -> dict:
+        query = await self.db.execute(
+            select(CartaoModel).where(
                 and_(
-                    CartaoModel.uuid == transferencia.uuid_pagador,
+                    CartaoModel.uuid == uuid,
                 )
             )
-            result = await self.db.execute(query)
-            cartao = result.scalars().first()
+        )
+        cartao = query.scalars().first()
+
+        if not cartao:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                                detail="Cartão não encontrado, verifique o UUID.")
+
+        if cartao.status != StatusEnum.ATIVO:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="O cartão informado não está ativo.")
+
+        if recarga.valor <= 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="O valor da recarga deve ser maior do que 0.")
+
+        cartao.saldo += recarga.valor
+
+        try:
+            await self.db.commit()
+        except Exception:
+            await self.db.rollback()
+            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                                detail="Erro ao recarregar o cartão. Tente novamente mais tarde.")
+
+        return {
+            "status_code": status.HTTP_200_OK,
+            "message": f"O cartão foi recarregado em R${recarga.valor:.2f}.",
+            "data": CartaoResponse.from_model(cartao)
+        }
+
+    async def transferir_saldo(self, transferencia: CartaoTransferir) -> dict:
+            query = await self.db.execute(
+                select(CartaoModel).where(
+                    and_(
+                        CartaoModel.uuid == transferencia.uuid_pagante,
+                    )
+                )
+            )
+            cartao = query.scalars().first()
 
             if cartao is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -161,13 +195,14 @@ class CartaoServices:
             saldo_atualizado = cartao.saldo - transferencia.valor
             cartao.saldo = saldo_atualizado
 
-            query2 = select(CartaoModel).where(
-                and_(
-                    CartaoModel.uuid == transferencia.uuid_recebedor
+            query2 = await self.db.execute(
+                select(CartaoModel).where(
+                    and_(
+                        CartaoModel.uuid == transferencia.uuid_recebente
+                    )
                 )
             )
-            result2 = await self.db.execute(query2)
-            cartao2 = result2.scalars().first()
+            cartao2 = query2.scalars().first()
 
             if cartao2 is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
@@ -186,5 +221,5 @@ class CartaoServices:
                 "status_code": status.HTTP_200_OK,
                 "message": f"Foi enviado R${transferencia.valor:.2f} do cartão '{cartao.uuid}'"
                              f" para o cartão '{cartao2.uuid}.",
-                "data": CartaoTransferirResponse.from_model(cartao2)
+                "data": CartaoResponse.from_model(cartao2)
             }

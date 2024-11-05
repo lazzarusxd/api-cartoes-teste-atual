@@ -1,10 +1,12 @@
 from uuid import UUID
-from fastapi import APIRouter, status, Depends
+from fastapi import APIRouter, status, Depends, Path
 from app.api.v1.endpoints.responses.cartao_responses import Responses
-from app.core.deps import auth_listar_cartoes_por_cpf, auth_atualizar_dados_cartao_uuid, auth_transferir_saldo
 from app.services.cartao_services import CartaoServices
+from app.core.deps import (auth_cartoes_por_cpf, auth_atualizar_informacoes,
+                           auth_transferir_saldo, auth_recarregar_cartao)
 from app.schemas.cartao_schema import (CriarCartao, CartaoResponseWrapper, CartoesPorCpfWrapper, CartaoUpdate,
-                                       CartaoUpdateWrapper, CartaoTransferir, CartaoTransferirWrapper)
+                                       CartaoUpdateWrapper, CartaoTransferir, CartaoTransferirWrapper,
+                                       CartaoRecargaWrapper, CartaoRecarga)
 
 router = APIRouter()
 
@@ -13,13 +15,13 @@ router = APIRouter()
              response_model=CartaoResponseWrapper,
              status_code=status.HTTP_201_CREATED,
              summary="Solicitar cartão",
-             description="Gera um novo cartão para o usuário com base nas informações fornecidas.",
+             description="Gera um novo cartão para o usuário com base nas informações fornecidas no body.",
              responses={
-                 **Responses.PostSolicitarCartao.sucesso_response,
-                 **Responses.PostSolicitarCartao.erro_validacao_response
+                 **Responses.SolicitarCartao.sucesso_response,
+                 **Responses.SolicitarCartao.dados_em_branco
              })
-async def post_solicitar_cartao(dados_cartao: CriarCartao,
-                                cartao_services: CartaoServices = Depends()) -> CartaoResponseWrapper:
+async def solicitar_cartao(dados_cartao: CriarCartao,
+                           cartao_services: CartaoServices = Depends()) -> CartaoResponseWrapper:
 
     cartao_response = await cartao_services.solicitar_cartao(dados_cartao)
 
@@ -36,14 +38,13 @@ async def post_solicitar_cartao(dados_cartao: CriarCartao,
             summary="Listar cartões por CPF",
             description="Retorna todos os cartões vinculados ao CPF informado.",
             responses={
-                **Responses.GetListarCartoesCpf.sucesso_response,
-                **Responses.GetListarCartoesCpf.cpf_invalido_response,
-                **Responses.GetListarCartoesCpf.erro_validacao_response
+                **Responses.CartoesPorCpf.sucesso_response,
+                **Responses.CartoesPorCpf.cpf_invalido_response
             })
-async def get_cartoes_por_cpf(cpf_titular: str = Depends(auth_listar_cartoes_por_cpf),
-                              cartao_services: CartaoServices = Depends()) -> CartoesPorCpfWrapper:
+async def cartoes_por_cpf(cpf_titular: str = Depends(auth_cartoes_por_cpf),
+                          cartao_services: CartaoServices = Depends()) -> CartoesPorCpfWrapper:
 
-    cartao_response = await cartao_services.listar_cartoes_por_cpf(cpf_titular)
+    cartao_response = await cartao_services.cartoes_por_cpf(cpf_titular)
 
     return CartoesPorCpfWrapper(
         status_code=cartao_response["status_code"],
@@ -52,20 +53,19 @@ async def get_cartoes_por_cpf(cpf_titular: str = Depends(auth_listar_cartoes_por
     )
 
 
-@router.put("/atualizar_info/{uuid}",
+@router.put("/atualizar_dados/{uuid}",
             response_model=CartaoUpdateWrapper,
             status_code=status.HTTP_200_OK,
             summary="Atualizar dados do cartão",
             description="Atualiza os dados do cartão pertencente ao UUID informado.",
             responses={
-                **Responses.PutAtualizarInformacoes.sucesso_response,
-                **Responses.PutAtualizarInformacoes.uuid_inexistente_response,
-                **Responses.PutAtualizarInformacoes.dados_em_branco_response,
-                **Responses.PutAtualizarInformacoes.erro_validacao_response
+                **Responses.AtualizarDados.sucesso_response,
+                **Responses.AtualizarDados.uuid_inexistente_response,
+                **Responses.AtualizarDados.dados_em_branco_response
             })
-async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
-                                uuid: UUID = Depends(auth_atualizar_dados_cartao_uuid),
-                                cartao_services: CartaoServices = Depends()) -> CartaoUpdateWrapper:
+async def atualizar_dados(dados_atualizados: CartaoUpdate,
+                          uuid: UUID = Depends(auth_atualizar_informacoes),
+                          cartao_services: CartaoServices = Depends()) -> CartaoUpdateWrapper:
 
     cartao_response = await cartao_services.atualizar_info(dados_atualizados, uuid)
 
@@ -74,9 +74,29 @@ async def atualizar_informacoes(dados_atualizados: CartaoUpdate,
                                data=cartao_response["data"])
 
 
+@router.post("/recarregar_cartao/{uuid}",
+             response_model=CartaoRecargaWrapper,
+             status_code=status.HTTP_200_OK,
+             summary="Recarregar cartão",
+             description="Recarrega o cartão especifícado pelo UUID informado no Path.")
+async def recarregar_cartao(uuid: UUID = Path(title="UUID do cartão",
+                                              description="UUID do cartão a ser recarregado."),
+                            recarga: CartaoRecarga = Depends(auth_recarregar_cartao),
+                            cartao_services: CartaoServices = Depends()) -> CartaoRecargaWrapper:
+
+    cartao_response = await cartao_services.recarregar_cartao(recarga, uuid)
+
+    return CartaoRecargaWrapper(
+        status_code=cartao_response["status_code"],
+        message=cartao_response["message"],
+        data=cartao_response["data"]
+    )
+
+
 @router.post("/transferir_saldo",
              response_model=CartaoTransferirWrapper,
              status_code=status.HTTP_200_OK,
+             summary="Transferir saldo",
              description="Transfere saldo entre cartões por UUID.")
 async def transferir_saldo(transferencia: CartaoTransferir = Depends(auth_transferir_saldo),
                            cartao_services: CartaoServices = Depends()) -> CartaoTransferirWrapper:
