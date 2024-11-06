@@ -22,6 +22,21 @@ async def auth_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
                                token: str = Depends(oauth2_schema),
                                db: AsyncSession = Depends(get_session)) -> str:
     try:
+        query1 = await db.execute(
+            select(CartaoModel).where(
+                and_(
+                    CartaoModel.cpf_titular == cpf_titular
+                )
+            )
+        )
+        cartao = query1.scalars().first()
+
+        if not cartao:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="O CPF informado não está vinculado a nenhum cartão ou é inválido."
+            )
+
         payload = jwt.decode(
             token,
             settings.JWT_SECRET,
@@ -32,12 +47,12 @@ async def auth_cartoes_por_cpf(cpf_titular: str = Path(title="CPF do titular",
         if not token_cpf or token_cpf != cpf_titular:
             raise credential_exception
 
-        query = await db.execute(
+        query2 = await db.execute(
             select(CartaoModel).where(
                 CartaoModel.cpf_titular == token_cpf
             )
         )
-        cartao = query.scalars().first()
+        cartao = query2.scalars().first()
 
         if not cartao or cartao.hash_token_descriptografado != token:
             raise credential_exception
@@ -132,7 +147,7 @@ async def auth_transferir_saldo(transferencia: CartaoTransferir,
         query = await db.execute(
             select(CartaoModel).where(
                 and_(
-                    CartaoModel.uuid == transferencia.uuid
+                    CartaoModel.uuid == transferencia.uuid_pagante
                 )
             )
         )
@@ -156,8 +171,8 @@ async def auth_transferir_saldo(transferencia: CartaoTransferir,
             raise credential_exception
 
         return CartaoTransferir(
-            uuid_pagador=transferencia.uuid_pagante,
-            uuid_recebedor=transferencia.uuid_recebente,
+            uuid_pagante=transferencia.uuid_pagante,
+            uuid_recebente=transferencia.uuid_recebente,
             valor=transferencia.valor
         )
 
