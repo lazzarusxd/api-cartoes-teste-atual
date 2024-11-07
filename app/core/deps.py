@@ -84,7 +84,7 @@ async def auth_atualizar_informacoes(uuid: UUID = Path(title="UUID do cartão",
 
         if not cartao:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="Não foi encontrado cartão com o UUID informado.")
+                                detail="Cartão não encontrado, verifique o UUID.")
 
         if cartao.cpf_titular != token_cpf or cartao.hash_token_descriptografado != token:
             raise credential_exception
@@ -122,7 +122,7 @@ async def auth_recarregar_cartao(recarga: CartaoRecarga,
 
         if not cartao:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="Não foi encontrado cartão com o UUID informado.")
+                                detail="Cartão não encontrado, verifique o UUID.")
 
         if token_cpf != cartao.cpf_titular or cartao.hash_token_descriptografado != token:
             raise credential_exception
@@ -155,19 +155,9 @@ async def auth_transferir_saldo(transferencia: CartaoTransferir,
 
         if not cartao:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="Não foi encontrado o UUID do cartão do pagante.")
+                                detail="Cartão não encontrado, verifique o UUID do pagante.")
 
-        if not token_cpf or token_cpf != cartao.cpf_titular:
-            raise credential_exception
-
-        query = await db.execute(
-            select(CartaoModel).where(
-                CartaoModel.cpf_titular == token_cpf
-            )
-        )
-        cartao = query.scalars().first()
-
-        if not cartao or cartao.hash_token_descriptografado != token:
+        if token_cpf != cartao.cpf_titular or cartao.hash_token_descriptografado != token:
             raise credential_exception
 
         return CartaoTransferir(

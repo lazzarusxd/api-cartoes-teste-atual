@@ -18,6 +18,9 @@ class CriarCartao(BaseModel):
                           description="Endereço completo do titular do cartão.",
                           examples=["RUA DA FELICIDADE, BAIRRO ALEGRIA"])
 
+    class Config:
+        from_attributes = True
+
     @field_validator("endereco", mode="before")
     def validator_endereco(cls, v):
         if not v.strip():
@@ -55,9 +58,6 @@ class CriarCartao(BaseModel):
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="O CPF deve conter exatamente 11 dígitos.")
         return v
-
-    class Config:
-        from_attributes = True
 
 
 class CartaoCriadoResponse(CriarCartao):
@@ -156,7 +156,10 @@ class CartaoUpdate(BaseModel):
     status: Optional[StatusEnum] = Field(None,
                                          title="Status do cartão",
                                          description="Status atual do cartão.",
-                                         examples=["ATIVO"]),
+                                         examples=["ATIVO"])
+
+    class Config:
+        from_attributes = True
 
     @field_validator("endereco", mode="before")
     def validator_endereco(cls, v):
@@ -196,9 +199,6 @@ class CartaoUpdate(BaseModel):
                                     detail="O status fornecido deve ser do tipo StatusEnum.")
         return v
 
-    class Config:
-        from_attributes = True
-
 
 class CartaoUpdateWrapper(BaseModel):
     status_code: int = Field(title="Código de status",
@@ -211,18 +211,21 @@ class CartaoUpdateWrapper(BaseModel):
 
 class CartaoRecarga(BaseModel):
     valor: float = Field(title="Valor da recarga",
-                         description="Valor da recarga a ser feito no cartão do titular.",
-                         examples=[150.00])
-
-    @field_validator("valor", mode="before")
-    def valida_valor(cls, v):
-        if v < 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="O valor da recarga deve ser maior do que 0.")
-
+                         description="Valor da recarga a ser inserida no cartão do UUID informado.",
+                         examples=[10.00])
 
     class Config:
         from_attributes = True
+
+    @field_validator("valor", mode="before")
+    def validator_valor(cls, v):
+        if not isinstance(v, (float, int)):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="O valor da recarga deve ser um número válido.")
+        if v < 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="O valor da recarga deve ser maior do que 0.")
+        return float(v)
 
 
 class CartaoRecargaWrapper(BaseModel):
@@ -244,6 +247,16 @@ class CartaoTransferir(BaseModel):
     valor: float = Field(title="Valor a ser transferido",
                          description="Valor a ser transferido para outro cartão.",
                          examples=[200.00])
+
+    @field_validator("valor", mode="before")
+    def validator_valor(cls, v):
+        if not isinstance(v, (float, int)):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="O valor da recarga deve ser um número válido.")
+        if v < 0:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                detail="O valor da recarga deve ser maior do que 0.")
+        return float(v)
 
 
 class CartaoTransferirWrapper(BaseModel):

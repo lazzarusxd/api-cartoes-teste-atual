@@ -87,10 +87,6 @@ class CartaoServices:
         )
         cartao = query1.scalars().first()
 
-        if not cartao:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="Cartão não encontrado, verifique o UUID.")
-
         atualizacoes_cartao = {}
 
         if dados_atualizados.titular_cartao is not None or dados_atualizados.endereco is not None:
@@ -118,10 +114,7 @@ class CartaoServices:
             atualizacoes_cartao["status"] = dados_atualizados.status
             cartao.status = dados_atualizados.status
 
-        print("Atualizações cartao: ", atualizacoes_cartao)
-
         if not atualizacoes_cartao:
-            print("Nenhuma atualização foi informada.")
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="Erro. Não foram informados dados a serem atualizados.")
 
@@ -148,17 +141,9 @@ class CartaoServices:
         )
         cartao = query.scalars().first()
 
-        if not cartao:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                detail="Cartão não encontrado, verifique o UUID.")
-
         if cartao.status != StatusEnum.ATIVO:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
                                 detail="O cartão informado não está ativo.")
-
-        if recarga.valor <= 0:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="O valor da recarga deve ser maior do que 0.")
 
         cartao.saldo += recarga.valor
 
@@ -185,17 +170,16 @@ class CartaoServices:
             )
             cartao = query.scalars().first()
 
-            if cartao is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="O UUID do pagador informado não pertence a nenhum cartão.")
+            if cartao.status != StatusEnum.ATIVO:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="O cartão do pagante não está ativo.")
 
             if transferencia.valor > cartao.saldo:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                                    detail=f"Saldo insuficiente, o saldo é de R${cartao.saldo:.2f} "
-                                           f"e a transferência solicitada foi de R${transferencia.valor:.2f}.")
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                    detail=f"Saldo insuficiente. Saldo atual: R${cartao.saldo:.2f} | "
+                                           f"Transferência solicitada: R${transferencia.valor:.2f}.")
 
-            saldo_atualizado = cartao.saldo - transferencia.valor
-            cartao.saldo = saldo_atualizado
+            cartao.saldo -= transferencia.valor
 
             query2 = await self.db.execute(
                 select(CartaoModel).where(
@@ -208,7 +192,11 @@ class CartaoServices:
 
             if cartao2 is None:
                 raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="O UUID do recebedor informado não pertence a nenhum cartão.")
+                                    detail="Cartão não encontrado, verifique o UUID do recebedor.")
+
+            if cartao2.status != StatusEnum.ATIVO:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="O cartão do recebedor não está ativo.")
 
             cartao2.saldo += transferencia.valor
 
@@ -221,7 +209,7 @@ class CartaoServices:
 
             return {
                 "status_code": status.HTTP_200_OK,
-                "message": f"Foi enviado R${transferencia.valor:.2f} do cartão '{cartao.uuid}'"
-                             f" para o cartão '{cartao2.uuid}.",
-                "data": CartaoResponse.from_model(cartao2)
+                "message": f"Foi transferido o valor de R${transferencia.valor:.2f} "
+                           f"para o cartão do UUID ({cartao2.uuid}).",
+                "data": CartaoResponse.from_model(cartao)
             }

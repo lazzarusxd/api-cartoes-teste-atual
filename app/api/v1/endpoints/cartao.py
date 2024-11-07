@@ -1,3 +1,4 @@
+from http.client import responses
 from uuid import UUID
 from fastapi import APIRouter, status, Depends, Path
 from app.api.v1.endpoints.responses.cartao_responses import Responses
@@ -17,8 +18,8 @@ router = APIRouter()
              summary="Solicitar cartão",
              description="Gera um novo cartão para o usuário com base nas informações fornecidas no body.",
              responses={
-                 **Responses.SolicitarCartao.sucesso_response,
-                 **Responses.SolicitarCartao.dados_em_branco
+                 **Responses.SolicitarCartao.sucesso,
+                 **Responses.SolicitarCartao.erros_validacao
              })
 async def solicitar_cartao(dados_cartao: CriarCartao,
                            cartao_services: CartaoServices = Depends()) -> CartaoResponseWrapper:
@@ -38,8 +39,8 @@ async def solicitar_cartao(dados_cartao: CriarCartao,
             summary="Listar cartões por CPF",
             description="Retorna todos os cartões vinculados ao CPF informado.",
             responses={
-                **Responses.CartoesPorCpf.sucesso_response,
-                **Responses.CartoesPorCpf.cpf_invalido_response
+                **Responses.CartoesPorCpf.sucesso,
+                **Responses.CartoesPorCpf.cpf_invalido
             })
 async def cartoes_por_cpf(cpf_titular: str = Depends(auth_cartoes_por_cpf),
                           cartao_services: CartaoServices = Depends()) -> CartoesPorCpfWrapper:
@@ -59,9 +60,9 @@ async def cartoes_por_cpf(cpf_titular: str = Depends(auth_cartoes_por_cpf),
             summary="Atualizar dados do cartão",
             description="Atualiza os dados do cartão pertencente ao UUID informado.",
             responses={
-                **Responses.AtualizarDados.sucesso_response,
-                **Responses.AtualizarDados.uuid_inexistente_response,
-                **Responses.AtualizarDados.dados_em_branco_response
+                **Responses.AtualizarDados.sucesso,
+                **Responses.AtualizarDados.uuid_invalido,
+                **Responses.AtualizarDados.erros_validacao
             })
 async def atualizar_dados(dados_atualizados: CartaoUpdate,
                           uuid: UUID = Depends(auth_atualizar_informacoes),
@@ -78,7 +79,12 @@ async def atualizar_dados(dados_atualizados: CartaoUpdate,
              response_model=CartaoRecargaWrapper,
              status_code=status.HTTP_200_OK,
              summary="Recarregar cartão",
-             description="Recarrega o cartão especifícado pelo UUID informado no Path.")
+             description="Recarrega o cartão pertencente ao UUID informado.",
+             responses={
+                 **Responses.RecarregarCartao.sucesso,
+                 **Responses.RecarregarCartao.erros_validacao,
+                 **Responses.RecarregarCartao.uuid_invalido
+             })
 async def recarregar_cartao(uuid: UUID = Path(title="UUID do cartão",
                                               description="UUID do cartão a ser recarregado."),
                             recarga: CartaoRecarga = Depends(auth_recarregar_cartao),
@@ -97,7 +103,11 @@ async def recarregar_cartao(uuid: UUID = Path(title="UUID do cartão",
              response_model=CartaoTransferirWrapper,
              status_code=status.HTTP_200_OK,
              summary="Transferir saldo",
-             description="Transfere saldo entre cartões por UUID.")
+             description="Transfere saldo entre cartões por UUID.",
+             responses={
+                 **Responses.TransferirSaldo.sucesso,
+                 **Responses.TransferirSaldo.erros_validacao
+             })
 async def transferir_saldo(transferencia: CartaoTransferir = Depends(auth_transferir_saldo),
                            cartao_services: CartaoServices = Depends()) -> CartaoTransferirWrapper:
 
