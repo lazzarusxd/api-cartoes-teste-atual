@@ -1,4 +1,3 @@
-from http.client import responses
 from uuid import UUID
 from fastapi import APIRouter, status, Depends, Path
 from app.api.v1.endpoints.responses.cartao_responses import Responses
