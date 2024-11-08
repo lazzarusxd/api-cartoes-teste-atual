@@ -1,10 +1,13 @@
 import uuid
-import enum, random
+import enum
+import random
 from calendar import monthrange
+from datetime import datetime, timedelta, date, timezone
+
 from sqlalchemy import Enum, Column, Integer, String, Date, select, DateTime, Float
 from sqlalchemy.dialects.postgresql import UUID
-from datetime import datetime, timedelta, date, timezone
 from jose import jwt
+
 from app.database.base import Base, get_session
 from app.core.configs import settings
 from app.core.auth import criar_token_acesso
@@ -80,15 +83,15 @@ class CartaoModel(Base):
 
     @staticmethod
     async def verificar_hash_cartao_unico(numero_cartao: str) -> bool:
-        numero_cartao = CartaoModel.gerar_hash_cartao(numero_cartao)
-        exists = False
+        hash_cartao = CartaoModel.gerar_hash_cartao(numero_cartao)
         async for session in get_session():
-            result = await session.execute(
-                select(CartaoModel).filter_by(numero_cartao=numero_cartao)
+            query = await session.execute(
+                select(CartaoModel).filter_by(numero_cartao=hash_cartao)
             )
-            if result is not None:
-                exists = result.scalars().first()
-        return exists is not None
+            if query is not None:
+                exists = query.scalars().first()
+                return exists is not None
+        return False
 
     @staticmethod
     def gerar_hash_cartao(numero_cartao: str) -> str:
@@ -130,15 +133,20 @@ class CartaoModel(Base):
 
     async def gerar_ou_atualizar_token(self):
         async for db in get_session():
-            query = select(CartaoModel).where(CartaoModel.cpf_titular == self.cpf_titular)
-            result = await db.execute(query)
-            cartoes = result.scalars().all()
+            query = await db.execute(
+                select(CartaoModel).where(
+                    CartaoModel.cpf_titular == self.cpf_titular
+                )
+            )
+            cartoes = query.scalars().all()
 
             if cartoes:
                 token_existente = next(
-                    (cartao
-                     for cartao in cartoes
-                     if cartao.token_expiracao > datetime.now(timezone.utc)),
+                    (
+                        cartao
+                        for cartao in cartoes
+                        if cartao.token_expiracao > datetime.now(timezone.utc)
+                    ),
                     None
                 )
                 if token_existente:
@@ -152,6 +160,7 @@ class CartaoModel(Base):
                         cartao.token_expiracao = nova_expiracao
 
                     await db.commit()
+
                     return novo_token, nova_expiracao
             else:
                 novo_token = self.gerar_hash_token(self.cpf_titular)
@@ -169,7 +178,6 @@ class CartaoModel(Base):
             algorithm=settings.ALGORITHM,
         )
         return hash_token
-
 
     @staticmethod
     def _descriptografar_hash_cartao(numero_cartao: str) -> str:

@@ -1,12 +1,15 @@
 from uuid import UUID
+
 from fastapi import status, Depends, HTTPException
 from sqlalchemy import and_
 from sqlalchemy.future import select
 from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.models.cartao_model import CartaoModel, StatusEnum
 from app.database.base import get_session
 from app.schemas.cartao_schema import (CriarCartao, CartaoResponse, CartaoCriadoResponse, CartaoUpdate,
                                        CartoesPorCpfResponse, CartaoTransferir, CartaoRecarga)
+
 
 class CartaoServices:
 
@@ -115,15 +118,19 @@ class CartaoServices:
             cartao.status = dados_atualizados.status
 
         if not atualizacoes_cartao:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="Erro. Não foram informados dados a serem atualizados.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Erro. Não foram informados dados a serem atualizados."
+            )
 
         try:
             await self.db.commit()
         except Exception:
             await self.db.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                                detail="Erro ao atualizar o cartão. Tente novamente mais tarde.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao atualizar o cartão. Tente novamente mais tarde."
+            )
 
         return {
             "status_code": status.HTTP_200_OK,
@@ -142,8 +149,10 @@ class CartaoServices:
         cartao = query.scalars().first()
 
         if cartao.status != StatusEnum.ATIVO:
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                detail="O cartão informado não está ativo.")
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="O cartão informado não está ativo."
+            )
 
         cartao.saldo += recarga.valor
 
@@ -151,8 +160,10 @@ class CartaoServices:
             await self.db.commit()
         except Exception:
             await self.db.rollback()
-            raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                                detail="Erro ao recarregar o cartão. Tente novamente mais tarde.")
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Erro ao recarregar o cartão. Tente novamente mais tarde."
+            )
 
         return {
             "status_code": status.HTTP_200_OK,
@@ -171,13 +182,17 @@ class CartaoServices:
             cartao = query.scalars().first()
 
             if cartao.status != StatusEnum.ATIVO:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                    detail="O cartão do pagante não está ativo.")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="O cartão do pagante não está ativo."
+                )
 
             if transferencia.valor > cartao.saldo:
-                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                                    detail=f"Saldo insuficiente. Saldo atual: R${cartao.saldo:.2f} | "
-                                           f"Transferência solicitada: R${transferencia.valor:.2f}.")
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Saldo insuficiente. Saldo atual: R${cartao.saldo:.2f} | "
+                           f"Transferência solicitada: R${transferencia.valor:.2f}."
+                )
 
             cartao.saldo -= transferencia.valor
 
@@ -191,12 +206,16 @@ class CartaoServices:
             cartao2 = query2.scalars().first()
 
             if cartao2 is None:
-                raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
-                                    detail="Cartão não encontrado, verifique o UUID do recebedor.")
+                raise HTTPException(
+                    status_code=status.HTTP_404_NOT_FOUND,
+                    detail="Cartão não encontrado, verifique o UUID do recebedor."
+                )
 
             if cartao2.status != StatusEnum.ATIVO:
-                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
-                                    detail="O cartão do recebedor não está ativo.")
+                raise HTTPException(
+                    status_code=status.HTTP_400_BAD_REQUEST,
+                    detail="O cartão do recebedor não está ativo."
+                )
 
             cartao2.saldo += transferencia.valor
 
@@ -204,8 +223,10 @@ class CartaoServices:
                 await self.db.commit()
             except Exception:
                 await self.db.rollback()
-                raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                                    detail="Erro ao atualizar o cartão. Tente novamente mais tarde.")
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Erro ao atualizar o cartão. Tente novamente mais tarde."
+                )
 
             return {
                 "status_code": status.HTTP_200_OK,

@@ -1,7 +1,6 @@
 class Responses:
 
     class SolicitarCartao:
-
         sucesso = {
             201: {
                 "description": "Cartão criado com sucesso.",
@@ -45,7 +44,6 @@ class Responses:
         }
 
     class CartoesPorCpf:
-
         sucesso = {
             200: {
                 "description": "Todos os cartões foram listados com sucesso.",
@@ -104,7 +102,6 @@ class Responses:
         }
 
     class AtualizarDados:
-
         sucesso = {
             200: {
                 "description": "Dados atualizados com sucesso.",
@@ -168,7 +165,6 @@ class Responses:
         }
 
     class RecarregarCartao:
-
         sucesso = {
             200: {
                 "description": "Recarga efetuada com sucesso.",
@@ -229,7 +225,6 @@ class Responses:
         }
 
     class TransferirSaldo:
-
         sucesso = {
             200: {
                 "description": "Transferência efetuada com sucesso.",
